@@ -2,6 +2,7 @@ import express from 'express';
 import cors from "cors";
 
 import connect from "./database/connection.js";
+import auth from './routes/auth.js'; // import auth route
 
 
 
@@ -16,7 +17,7 @@ app.get('/',(req,res) => {
   res.send('migara')
 })
 
-
+app.use('/auth', auth); // create auth route
 
 connect()
   .then(() => {
