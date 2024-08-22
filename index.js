@@ -1,34 +1,34 @@
 import express from 'express';
 import cors from "cors";
+import dotenv from 'dotenv';
 
 import connect from "./database/connection.js";
-import auth from './routes/auth.js'; // import auth route
+import auth from './routes/auth.js'; // Import auth route
 
+// Load environment variables from .env file
+dotenv.config();
 
-
-
-const app = express(); // create express app
+const app = express(); // Create express app
 app.use(express.json());
 app.use(cors());
 
-const PORT = 5000 || process.env.PORT; // create local build port or get prod build port
+const PORT = process.env.PORT || 5000; // Use port from environment variables or default to 5000
 
-app.get('/',(req,res) => {
-  res.send('migara')
-})
+// Health check route or default route
+app.get('/', (req, res) => {
+  res.send('Server is running!');
+});
 
-app.use('/auth', auth); // create auth route
+// Use the auth route
+app.use('/auth', auth);
 
+// Connect to MongoDB and start the server
 connect()
   .then(() => {
-    try {
-      app.listen(PORT, () => {
-        console.log(`server connect on: ${PORT}`);
-      });
-    } catch (err) {
-      console.log("server Connect Failed", err);
-    }
+    app.listen(PORT, () => {
+      console.log(`Server running on port: ${PORT}`);
+    });
   })
   .catch((err) => {
-    console.log("Invalid Database connection", err);
+    console.error("Invalid Database connection:", err);
   });

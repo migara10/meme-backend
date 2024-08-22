@@ -1,5 +1,5 @@
-import userModel from "../models/user.model.js"; // import user model
-import bcrypt from "bcrypt"; // import password encorder
+import userModel from "../models/user.model.js";
+import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 
@@ -16,144 +16,161 @@ const emailExist = (email) => {
 };
 
 const hashPassword = async (password) => {
-  const hashedPassword = await new Promise((resolve, reject) => {
-    bcrypt.hash(password, 10, function (err, hash) {
-      if (err) reject(err);
-      resolve(hash);
-    });
-  });
-  return hashedPassword;
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    return hashedPassword;
+  } catch (err) {
+    throw new Error("Error hashing password");
+  }
 };
 
 const registerUser = async (req, res) => {
   try {
     const { userName, password, email } = req.body;
 
-    // check username already exist
+    // Check if username already exists
     const existingUser = await userNameExist(userName);
     if (existingUser) {
-      return res.status(401).send({ message: "User is already exists." });
+      return res.status(409).json({ message: "Username already exists." });
     }
 
-    // check email already exist
+    // Check if email already exists
     const existingEmail = await emailExist(email);
     if (existingEmail) {
-      return res.status(401).send({ message: "Email is already use." });
+      return res.status(409).json({ message: "Email is already in use." });
     }
 
-    const hashedPassword = await hashPassword(password); // hash password
+    // Hash the password
+    const hashedPassword = await hashPassword(password);
 
+    // Create a new user
     const newUser = new userModel({
       userName,
       password: hashedPassword,
-      email
+      email,
     });
 
-    // Save the new user to the database
+    // Save the user to the database
     await newUser.save();
 
-    return res.status(200).send({ message: "User registered successfully." });
+    return res.status(201).json({ message: "User registered successfully." });
   } catch (error) {
-    return res.status(500).send({ message: "Internal Server Error" });
+    console.error("Error registering user:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
 const compareHashPassword = (password, hashPassword) => {
-  return new Promise((resolve, reject) => {
-    bcrypt.compare(password, hashPassword, (error, passwordMatch) => {
-      if (error) reject(error);
-      resolve(passwordMatch);
-    });
-  });
+  return bcrypt.compare(password, hashPassword);
 };
 
 const generateToken = (user, key, time) => {
-  const token = jwt.sign({ userId: user._id }, key, {
+  return jwt.sign({ userId: user._id, userName: user.userName, email: user.email }, key, {
     expiresIn: time,
   });
-  return token;
 };
 
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    // Check if the user exists by email
     const user = await emailExist(email);
 
     if (!user) {
-      return res.status(400).send({ message: "Valid User Not Found." });
+      return res.status(404).json({ message: "User not found." });
     }
-    
-    const isMatch = await compareHashPassword(password, user.password); // Compare password
+
+    // Compare the provided password with the stored hashed password
+    const isMatch = await compareHashPassword(password, user.password);
 
     if (isMatch) {
+      // Generate access and refresh tokens
       const accessToken = generateToken(user, process.env.ACCESS_KEY, "10m");
       const refreshToken = generateToken(user, process.env.REFRESH_KEY, "1h");
 
+      // Store the refresh token
       refreshTokens.push(refreshToken);
-      const userWithoutPassword = { ...user.toObject(), password };
-      return res.status(200).send({
-        message: "User login successfully.",
+
+      // Exclude the password from the user object before returning it
+      const { password, ...userWithoutPassword } = user.toObject();
+
+      return res.status(200).json({
+        message: "User login successful.",
         accessToken,
         refreshToken,
         user: userWithoutPassword,
       });
     } else {
-      return res.status(400).send({ message: "Invalid Password." });
+      return res.status(401).json({ message: "Invalid password." });
     }
   } catch (error) {
-    return res.status(500).send({ message: "Internal Server Error" });
+    console.error("Error logging in user:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
 const getToken = async (req, res) => {
   try {
-    const refreshToken = req.body.refreshToken;
+    const { refreshToken } = req.body;
 
-    if (refreshToken == null) {
-      return res.status(401).send({ message: "Unauthorized" });
+    if (!refreshToken) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
+
+    // Check if refresh token is valid
     if (!refreshTokens.includes(refreshToken)) {
-      return res.status(403).send({ message: "Forbidden" }); // check refresh token already save in the server
+      return res.status(403).json({ message: "Forbidden" });
     }
+
+    // Verify the refresh token
     jwt.verify(refreshToken, process.env.REFRESH_KEY, (err, user) => {
       if (err) {
-        return res.status(403).send({ message: "Forbidden" });
+        return res.status(403).json({ message: "Forbidden" });
       }
-      const accessToken = generateToken(user, process.env.ACCESS_KEY, "10m");
-      return res.status(200).send({ accessToken });
-    });
-  } catch (error) {}
-};
 
+      // Generate a new access token
+      const accessToken = generateToken(user, process.env.ACCESS_KEY, "10m");
+      return res.status(200).json({ accessToken });
+    });
+  } catch (error) {
+    console.error("Error getting new token:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
 
 const logOut = (req, res) => {
   try {
     const { refreshToken } = req.body;
+
     if (!refreshToken) {
       return res.status(400).json({ message: "Refresh token is missing" });
     }
+
+    // Remove the refresh token from the stored tokens
     refreshTokens = refreshTokens.filter((token) => token !== refreshToken);
 
-    return res.status(204).json({ message: "Logout Successfully" });
+    return res.status(204).json({ message: "Logout successful" });
   } catch (error) {
+    console.error("Error logging out:", error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
 const getAllUsers = async (req, res) => {
   try {
-    const result = await userModel.find({});
+    const users = await userModel.find({});
 
-    if (result.length === 0) {
+    if (!users.length) {
       return res.status(204).json({ message: "No users found" });
     }
 
-    return res.status(200).json({ data: result });
+    return res.status(200).json({ data: users });
   } catch (error) {
+    console.error("Error retrieving users:", error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
-
 
 export default {
   registerUser,
