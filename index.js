@@ -14,10 +14,6 @@ app.use(cors());
 
 const PORT = process.env.PORT || 5000; // Use port from environment variables or default to 5000
 
-// Health check route or default route
-app.get('/', (req, res) => {
-  res.send('Server is running!');
-});
 
 // Use the auth route
 app.use('/auth', auth);
