@@ -6,7 +6,7 @@ dotenv.config();
 
 async function connect() {
     try {
-      const db = await mongoose.connect(process.env.DATABASE_URL, {
+      const db = await mongoose.connect('mongodb+srv://sphiriad:wo5eIHAnZvgRTBes@cluster0.qkuh3tq.mongodb.net/meme', {
       });
       console.log("Connected to MongoDB");
       return db;
