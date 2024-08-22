@@ -2,7 +2,6 @@ import express from 'express';
 import cors from "cors";
 
 import connect from "./database/connection.js";
-import auth from './routes/auth.js'; // import auth route
 
 
 
@@ -16,8 +15,6 @@ const PORT = 5000 || process.env.PORT; // create local build port or get prod bu
 app.get('/',(req,res) => {
   res.send('migara')
 })
-
-app.use('/auth', auth); // create auth route
 
 
 
