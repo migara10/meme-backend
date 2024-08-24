@@ -1,14 +1,24 @@
 import express from 'express';
 import cors from "cors";
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url'; // Import to handle __dirname in ES modules
 
 import connect from "./database/connection.js";
 import auth from './routes/auth.js'; // Import auth route
 
-// Load environment variables from .env file
+// Initialize environment variables from .env file
 dotenv.config();
 
+// Get the __filename and __dirname equivalents in ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express(); // Create express app
+
+// Serve static files from the React app
+app.use(express.static(path.join(__dirname, 'client/build')));
+
 app.use(express.json());
 app.use(cors());
 
@@ -21,6 +31,11 @@ app.get('/', (req, res) => {
 
 // Use the auth route
 app.use('/auth', auth);
+
+// Serve the index.html for all other routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
+});
 
 // Connect to MongoDB and start the server
 connect()
