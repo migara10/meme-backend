@@ -16,7 +16,9 @@ export const UserSchema = new mongoose.Schema({
     required: [true, "Please provide unique email"],
     unique: [true, "Email Already Exist"],
   },
+  otp: { type: String }, 
+  otpExpiry: { type: Date }, 
   createData: { type: Date, default: Date.now },
 });
 
-export default mongoose.model('User', UserSchema);
+export default mongoose.model("User", UserSchema);
