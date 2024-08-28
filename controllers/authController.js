@@ -7,7 +7,7 @@ import nodemailer from "nodemailer";
 import crypto from "crypto";
 
 const generateOTP = () => {
-  const otp = crypto.randomInt(100000, 999999); 
+  const otp = crypto.randomInt(100000, 999999);
   return otp.toString();
 };
 
@@ -234,6 +234,7 @@ const resetPassword = async (req, res) => {
   }
 };
 
+// otp validate
 const validateOTP = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
@@ -263,8 +264,6 @@ const validateOTP = async (req, res) => {
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
-
-
 
 export default {
   registerUser,
