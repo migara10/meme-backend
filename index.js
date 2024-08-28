@@ -1,11 +1,11 @@
-import express from 'express';
+import express from "express";
 import cors from "cors";
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url'; // Import to handle __dirname in ES modules
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url"; // Import to handle __dirname in ES modules
 
 import connect from "./database/connection.js";
-import auth from './routes/auth.js'; // Import auth route
+import auth from "./routes/auth.js"; // Import auth route
 
 // Initialize environment variables from .env file
 dotenv.config();
@@ -17,7 +17,7 @@ const __dirname = path.dirname(__filename);
 const app = express(); // Create express app
 
 // Serve static files from the React app
-app.use(express.static(path.join(__dirname, 'client/build')));
+app.use(express.static(path.join(__dirname, "client/build")));
 
 app.use(express.json());
 app.use(cors());
@@ -25,16 +25,18 @@ app.use(cors());
 const PORT = process.env.PORT || 5000; // Use port from environment variables or default to 5000
 
 // Health check route or default route
-app.get('/', (req, res) => {
-  res.send('Server is running!');
+app.get("/", (req, res) => {
+  res.send("Server is running!");
 });
 
 // Use the auth route
-app.use('/auth', auth);
+app.use("/auth", auth);
+
+
 
 // Serve the index.html for all other routes
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "client/build", "index.html"));
 });
 
 // Connect to MongoDB and start the server

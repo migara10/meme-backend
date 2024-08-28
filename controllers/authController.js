@@ -2,6 +2,14 @@ import userModel from "../models/user.model.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import nodemailer from "nodemailer";
+
+import crypto from "crypto";
+
+const generateOTP = () => {
+  const otp = crypto.randomInt(100000, 999999); 
+  return otp.toString();
+};
 
 dotenv.config();
 
@@ -65,9 +73,13 @@ const compareHashPassword = (password, hashPassword) => {
 };
 
 const generateToken = (user, key, time) => {
-  return jwt.sign({ userId: user._id, userName: user.userName, email: user.email }, key, {
-    expiresIn: time,
-  });
+  return jwt.sign(
+    { userId: user._id, userName: user.userName, email: user.email },
+    key,
+    {
+      expiresIn: time,
+    }
+  );
 };
 
 const loginUser = async (req, res) => {
@@ -172,10 +184,94 @@ const getAllUsers = async (req, res) => {
   }
 };
 
+const resetPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const existingUser = await emailExist(email);
+    if (!existingUser) {
+      return res.status(404).json({ message: "Please enter a valid email." });
+    }
+
+    // Generate OTP
+    const otp = generateOTP();
+    const otpExpiry = Date.now() + 10 * 60 * 1000; // OTP expires in 10 minutes
+
+    // Store OTP and its expiry time in the user document
+    existingUser.otp = otp;
+    existingUser.otpExpiry = otpExpiry;
+    await existingUser.save();
+
+    // Configure transporter for nodemailer
+    var transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    // Email options
+    var mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Your OTP Code",
+      text: `Your OTP code is ${otp}. It is valid for 10 minutes.`,
+    };
+
+    // Send email
+    transporter.sendMail(mailOptions, function (error, info) {
+      if (error) {
+        console.log(error);
+        return res.status(500).json({ message: "Error sending OTP" });
+      } else {
+        console.log("Email sent: " + info.response);
+        return res.status(200).json({ message: "OTP sent successfully" });
+      }
+    });
+  } catch (error) {
+    console.error("Error during password reset:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+const validateOTP = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    const existingUser = await emailExist(email);
+    if (!existingUser) {
+      return res.status(404).json({ message: "Invalid email address." });
+    }
+
+    // Check if OTP is correct and not expired
+    if (existingUser.otp !== otp || existingUser.otpExpiry < Date.now()) {
+      return res.status(400).json({ message: "Invalid or expired OTP." });
+    }
+
+    // Hash the new password
+    const hashedPassword = await hashPassword(newPassword);
+
+    // Update the user's password
+    existingUser.password = hashedPassword;
+    existingUser.otp = undefined;
+    existingUser.otpExpiry = undefined;
+    await existingUser.save();
+
+    return res.status(200).json({ message: "Password reset successfully." });
+  } catch (error) {
+    console.error("Error validating OTP:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+
+
 export default {
   registerUser,
   loginUser,
   getToken,
   logOut,
   getAllUsers,
+  resetPassword,
+  validateOTP,
 };
